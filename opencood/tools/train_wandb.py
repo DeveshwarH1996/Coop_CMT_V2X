@@ -15,7 +15,7 @@ from opencood.tools import train_utils
 from opencood.data_utils.datasets import build_dataset
 
 from icecream import ic
-
+import wandb
 
 def train_parser():
     parser = argparse.ArgumentParser(description="synthetic data generation")
@@ -32,7 +32,8 @@ def train_parser():
 def main():
     opt = train_parser()
     hypes = yaml_utils.load_yaml(opt.hypes_yaml, opt)
-
+    wandb.init(project="rinne-former_checkpoints", config=hypes)
+    config = wandb.config
     print('Dataset Building')
     opencood_train_dataset = build_dataset(hypes, visualize=False, train=True)
     opencood_validate_dataset = build_dataset(hypes,

@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 
-class BaseBEVBackbone(nn.Module):
+class BaseBEVBackbone_old(nn.Module):
     def __init__(self, model_cfg, input_channels):
         super().__init__()
         self.model_cfg = model_cfg
@@ -31,7 +31,6 @@ class BaseBEVBackbone(nn.Module):
             upsample_strides = num_upsample_filters = []
 
         num_levels = len(layer_nums)
-        num_filters[0] = input_channels
         c_in_list = [input_channels, *num_filters[:-1]]
 
         self.blocks = nn.ModuleList()

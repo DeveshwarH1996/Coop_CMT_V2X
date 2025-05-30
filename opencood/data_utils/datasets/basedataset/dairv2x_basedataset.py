@@ -122,7 +122,8 @@ class DAIRV2XBaseDataset(Dataset):
         transformation_matrix = inf_side_rot_and_trans_to_trasnformation_matrix(virtuallidar_to_world, system_error_offset)
         data[1]['params']['lidar_pose'] = tfm_to_pose(transformation_matrix)
 
-        data[0]['params']['vehicles_front'] = read_json(os.path.join(self.root_dir,frame_info['cooperative_label_path'].replace("label_world", "label_world_backup"))) 
+        # data[0]['params']['vehicles_front'] = read_json(os.path.join(self.root_dir,frame_info['cooperative_label_path'].replace("label_world", "label_world_backup"))) 
+        data[0]['params']['vehicles_front'] = read_json(os.path.join(self.root_dir,frame_info['cooperative_label_path']))
         data[0]['params']['vehicles_all'] = read_json(os.path.join(self.root_dir,frame_info['cooperative_label_path'])) 
 
         data[1]['params']['vehicles_front'] = [] # we only load cooperative label in vehicle side
@@ -150,8 +151,11 @@ class DAIRV2XBaseDataset(Dataset):
 
 
         # Label for single side
+        # data[0]['params']['vehicles_single_front'] = read_json(os.path.join(self.root_dir, \
+        #                         'vehicle-side/label/lidar_backup/{}.json'.format(veh_frame_id)))
         data[0]['params']['vehicles_single_front'] = read_json(os.path.join(self.root_dir, \
-                                'vehicle-side/label/lidar_backup/{}.json'.format(veh_frame_id)))
+                                'vehicle-side/label/lidar/{}.json'.format(veh_frame_id)))
+        
         data[0]['params']['vehicles_single_all'] = read_json(os.path.join(self.root_dir, \
                                 'vehicle-side/label/lidar/{}.json'.format(veh_frame_id)))
         data[1]['params']['vehicles_single_front'] = read_json(os.path.join(self.root_dir, \

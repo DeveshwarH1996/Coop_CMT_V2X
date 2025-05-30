@@ -39,6 +39,56 @@ def test_parser():
     opt = parser.parse_args()
     return opt
 
+def count_parameters(model):
+    """
+    Count total parameters and trainable parameters in a model
+    """
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    return total_params, trainable_params
+
+def measure_inference_time(model, batch_data, device, fusion_method, opencood_dataset, num_iterations=100):
+    """
+    Measure average inference time over multiple iterations
+    """
+    model.eval()
+    total_time = 0
+    
+    with torch.no_grad():
+        # Warmup
+        for _ in range(10):
+            if fusion_method == 'late':
+                _ = inference_utils.inference_late_fusion(batch_data, model, opencood_dataset)
+            elif fusion_method == 'early':
+                _ = inference_utils.inference_early_fusion(batch_data, model, opencood_dataset)
+            elif fusion_method == 'intermediate':
+                _ = inference_utils.inference_intermediate_fusion(batch_data, model, opencood_dataset)
+            elif fusion_method in ['no', 'single']:
+                _ = inference_utils.inference_no_fusion(batch_data, model, opencood_dataset)
+            elif fusion_method == 'no_w_uncertainty':
+                _ = inference_utils.inference_no_w_uncertainty(batch_data, model, opencood_dataset)
+        
+        # Actual timing
+        for _ in range(num_iterations):
+            start_time = time.time()
+            
+            if fusion_method == 'late':
+                _ = inference_utils.inference_late_fusion(batch_data, model, opencood_dataset)
+            elif fusion_method == 'early':
+                _ = inference_utils.inference_early_fusion(batch_data, model, opencood_dataset)
+            elif fusion_method == 'intermediate':
+                _ = inference_utils.inference_intermediate_fusion(batch_data, model, opencood_dataset)
+            elif fusion_method in ['no', 'single']:
+                _ = inference_utils.inference_no_fusion(batch_data, model, opencood_dataset)
+            elif fusion_method == 'no_w_uncertainty':
+                _ = inference_utils.inference_no_w_uncertainty(batch_data, model, opencood_dataset)
+            
+            torch.cuda.synchronize()
+            end_time = time.time()
+            total_time += (end_time - start_time)
+    
+    avg_time = total_time / num_iterations
+    return avg_time
 
 def main():
     opt = test_parser()
@@ -103,6 +153,12 @@ def main():
         model.cuda()
     model.eval()
 
+    # Count model parameters
+    total_params, trainable_params = count_parameters(model)
+    print(f"\nModel Statistics:")
+    print(f"Total Parameters: {total_params:,}")
+    print(f"Trainable Parameters: {trainable_params:,}")
+
     # setting noise
     np.random.seed(303)
     
@@ -118,6 +174,16 @@ def main():
                             shuffle=False,
                             pin_memory=False,
                             drop_last=False)
+    
+    # Measure inference time
+    print("\nMeasuring inference time...")
+    first_batch = next(iter(data_loader))
+    if first_batch is not None:
+        first_batch = train_utils.to_device(first_batch, device)
+        avg_inference_time = measure_inference_time(model, first_batch, device, 
+                                                  opt.fusion_method, opencood_dataset)
+        print(f"Average inference time: {avg_inference_time*1000:.2f} ms")
+        print(f"FPS: {1/avg_inference_time:.2f}")
     
     # Create the dictionary for evaluation
     result_stat = {0.3: {'tp': [], 'fp': [], 'gt': 0, 'score': []},                
