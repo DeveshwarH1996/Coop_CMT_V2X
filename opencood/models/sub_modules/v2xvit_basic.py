@@ -187,7 +187,7 @@ class V2XTransformer(nn.Module):
         encoder_args = args['encoder']
         self.encoder = V2XTEncoder(encoder_args)
 
-    def forward(self, x, mask, spatial_correction_matrix):
+    def forward(self, x, mask, spatial_correction_matrix, **kwargs):
         output = self.encoder(x, mask, spatial_correction_matrix)
         output = output[:, 0]
         return output

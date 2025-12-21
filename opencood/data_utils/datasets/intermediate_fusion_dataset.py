@@ -555,7 +555,7 @@ def getIntermediateFusionDataset(cls):
                                     'object_bbx_mask': object_bbx_mask,
                                     'record_len': record_len,
                                     'label_dict': label_torch_dict,
-                                    'object_ids': object_ids[0],
+                                    'object_ids': object_ids,
                                     'pairwise_t_matrix': pairwise_t_matrix,
                                     'lidar_pose_clean': lidar_pose_clean,
                                     'lidar_pose': lidar_pose,

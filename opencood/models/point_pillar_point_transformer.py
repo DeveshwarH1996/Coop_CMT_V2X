@@ -54,7 +54,11 @@ class PointPillarPointTransformer(nn.Module):
             self.compression = True
             self.naive_compressor = NaiveCompressor(256, args['compression'])
 
-        self.fusion_net = V2XTransformer(args['transformer'])
+        if 'core_method' in args['transformer'] and args['transformer']['core_method'] == 'video_codec':
+            from opencood.models.sub_modules.video_codec_fusion import VideoCodecFusion
+            self.fusion_net = VideoCodecFusion(args['transformer'])
+        else:
+            self.fusion_net = V2XTransformer(args['transformer'])
 
         self.cls_head = nn.Conv2d(128 * 2, args['anchor_number'],
                                   kernel_size=1)
@@ -139,8 +143,13 @@ class PointPillarPointTransformer(nn.Module):
 
         # b l c h w -> b l h w c
         regroup_feature = regroup_feature.permute(0, 1, 3, 4, 2)
+        if 'object_ids' in data_dict:
+            object_ids = data_dict['object_ids']
+        else:
+            object_ids = None
+
         # transformer fusion
-        fused_feature = self.fusion_net(regroup_feature, mask, spatial_correction_matrix)
+        fused_feature = self.fusion_net(regroup_feature, mask, spatial_correction_matrix, object_ids=object_ids)
         # b h w c -> b c h w
         fused_feature = fused_feature.permute(0, 3, 1, 2)
 
