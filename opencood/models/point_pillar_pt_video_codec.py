@@ -12,9 +12,9 @@ from opencood.models.fuse_modules.v2xvit_basic import V2XTransformer
 from opencood.models.sub_modules.pillar_cross_attention import PillarCrossAttention
 from torch.utils.checkpoint import checkpoint
 
-class PointPillarPointTransformer(nn.Module):
+class PointPillarPTVideoCodec(nn.Module):
     def __init__(self, args):
-        super(PointPillarPointTransformer, self).__init__()
+        super(PointPillarPTVideoCodec, self).__init__()
 
         self.max_cav = args['max_cav']
         
@@ -52,8 +52,14 @@ class PointPillarPointTransformer(nn.Module):
 
         if args['compression'] > 0:
             self.compression = True
-            self.naive_compressor = NaiveCompressor(256, args['compression'])
+            from opencood.models.sub_modules.video_codec_fusion import VideoCodecLayer
+            self.video_codec_layer = VideoCodecLayer(
+                keyframe_interval=args.get('keyframe_interval', 10),
+                compression_args=args['compression'],
+                input_channels=256
+            )
 
+        # Force usage of V2XTransformer, ignore video_codec core method check if present
         self.fusion_net = V2XTransformer(args['transformer'])
 
         self.cls_head = nn.Conv2d(128 * 2, args['anchor_number'],
@@ -78,7 +84,7 @@ class PointPillarPointTransformer(nn.Module):
             p.requires_grad = False
 
         if self.compression:
-            for p in self.naive_compressor.parameters():
+            for p in self.video_codec_layer.parameters():
                 p.requires_grad = False
         if self.shrink_flag:
             for p in self.shrink_conv.parameters():
@@ -124,9 +130,19 @@ class PointPillarPointTransformer(nn.Module):
         # downsample feature to reduce memory
         if self.shrink_flag:
             spatial_features_2d = self.shrink_conv(spatial_features_2d)
-        # compressor
+        
+        # compressor replacement with VideoCodecLayer
         if self.compression:
-            spatial_features_2d = self.naive_compressor(spatial_features_2d)
+            # Flatten object_ids for the encoder layer
+            flat_object_ids = []
+            if 'object_ids' in data_dict:
+                for b, ids in enumerate(data_dict['object_ids']):
+                    flat_object_ids.extend(ids)
+            else:
+                flat_object_ids = None
+
+            spatial_features_2d = self.video_codec_layer(spatial_features_2d, flat_object_ids)
+
         # N, C, H, W -> B,  L, C, H, W
         regroup_feature, mask = regroup(spatial_features_2d,
                                         record_len,
@@ -145,7 +161,7 @@ class PointPillarPointTransformer(nn.Module):
             object_ids = None
 
         # transformer fusion
-        fused_feature = self.fusion_net(regroup_feature, mask, spatial_correction_matrix, object_ids=object_ids)
+        fused_feature = self.fusion_net(regroup_feature, mask, spatial_correction_matrix)
         # b h w c -> b c h w
         fused_feature = fused_feature.permute(0, 3, 1, 2)
 
